@@ -16,7 +16,7 @@ CORS(app)
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 '''
-# db_drop_and_create_all()
+db_drop_and_create_all()
 
 ## ROUTES
 '''
@@ -28,7 +28,7 @@ CORS(app)
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks', methods=['GET'])
-def retrieve_categories():
+def retrieve_drinks():
     drinks = [drink.short() for drink in Drink.query.all()]
     return jsonify({
         "success" : True,
@@ -55,7 +55,20 @@ def retrieve_categories():
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks', methods=['POST'])
+def create_new_drink():
+    newDrink = Drink(
+        title = request.json.get('title', ''),
+        recipe = json.dumps(request.json.get('recipe', ''))
+    )
 
+    Drink.insert(newDrink)
+    newDrink = [drink.long() for drink in Drink.query.order_by(Drink.id).all()][-1]
+
+    return jsonify({
+        "sucess" : True,
+        "drinks" : newDrink
+    })
 
 '''
 @TODO implement endpoint
