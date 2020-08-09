@@ -44,6 +44,13 @@ def retrieve_drinks():
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks-detail', methods=['GET'])
+def retrieve_drinks_detail():
+    drinks = [drink.long() for drink in Drink.query.all()]
+    return jsonify({
+        "success" : True,
+        "drinks" : drinks
+    })
 
 
 '''
