@@ -76,7 +76,7 @@ def create_new_drink(jwt):
 
     return jsonify({
         "sucess" : True,
-        "drinks" : newDrink
+        "drinks" : [newDrink]
     })
 
 '''
@@ -90,6 +90,29 @@ def create_new_drink(jwt):
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:drink_id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def patch_drink(jwt, drink_id):
+    drink = Drink.query.filter_by(id=drink_id).one_or_none()
+    if drink is None:
+        # Drink with ID is not found
+        abort(404)
+    
+    if len(request.json.get('title', '')) < 1:
+        abort(400)
+    else:
+        drink.title = request.json.get('title', ''),
+    
+    if len(json.dumps(request.json.get('recipe', ''))) < 1:
+        abort(400)
+    else:
+        drink.recipe = json.dumps(request.json.get('recipe', ''))
+
+    return jsonify({
+        "success" : True,
+        "drinks" : [drink.long()]
+    })
+
 
 
 '''
@@ -102,10 +125,11 @@ def create_new_drink(jwt):
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks/<int:id>', methods=['DELETE'])
+@app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
-def delete_drink(jwt, id):
-    drink = Drink.query.filter_by(Drink.id = id).one_or_none()
+def delete_drink(jwt, drink_id):
+    drink = Drink.query.filter_by(Drink.id==drink_id).one_or_none()
+    
     if drink is None:
         # Drink with ID is not found
         abort(404)
