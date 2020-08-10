@@ -16,7 +16,7 @@ CORS(app)
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 '''
-# db_drop_and_create_all()
+db_drop_and_create_all()
 
 ## ROUTES
 '''
@@ -30,6 +30,7 @@ CORS(app)
 @app.route('/drinks', methods=['GET'])
 def retrieve_drinks():
     drinks = [drink.short() for drink in Drink.query.all()]
+    
     return jsonify({
         "success" : True,
         "drinks" : drinks,
@@ -46,7 +47,7 @@ def retrieve_drinks():
 '''
 @app.route('/drinks-detail', methods=['GET'])
 @requires_auth('get:drinks-detail')
-def retrieve_drinks_detail():
+def retrieve_drinks_detail(jwt):
     drinks = [drink.long() for drink in Drink.query.all()]
     return jsonify({
         "success" : True,
@@ -71,12 +72,15 @@ def create_new_drink(jwt):
         recipe = json.dumps(request.json.get('recipe', ''))
     )
 
-    Drink.insert(newDrink)
-    newDrink = [drink.long() for drink in Drink.query.order_by(Drink.id).all()][-1]
+    try:
+        Drink.insert(newDrink)
+    except exc.SQLAlchemyError:
+        # return internal server error if couldn't add record
+        abort(500)
 
     return jsonify({
-        "sucess" : True,
-        "drinks" : [newDrink]
+        "success" : True,
+        "drinks" : [newDrink.long()]
     })
 
 '''
@@ -98,14 +102,10 @@ def patch_drink(jwt, drink_id):
         # Drink with ID is not found
         abort(404)
     
-    if len(request.json.get('title', '')) < 1:
-        abort(400)
-    else:
-        drink.title = request.json.get('title', ''),
+    if request.json.get('title', '') is not '':
+        drink.title = request.json.get('title', '')
     
-    if len(json.dumps(request.json.get('recipe', ''))) < 1:
-        abort(400)
-    else:
+    if request.json.get('recipe', '') is not '':
         drink.recipe = json.dumps(request.json.get('recipe', ''))
 
     return jsonify({
@@ -128,7 +128,7 @@ def patch_drink(jwt, drink_id):
 @app.route('/drinks/<int:drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
 def delete_drink(jwt, drink_id):
-    drink = Drink.query.filter_by(Drink.id==drink_id).one_or_none()
+    drink = Drink.query.filter_by(id=drink_id).one_or_none()
     
     if drink is None:
         # Drink with ID is not found
@@ -136,12 +136,13 @@ def delete_drink(jwt, drink_id):
     
     try:
         drink.delete()
-    except SQLAlchemyError:
+    except exc.SQLAlchemyError:
+        # return internal server error if couldn't delete record
         abort(500)
     
     return jsonify({
         "success" : True,
-        "delete" : id
+        "delete" : drink_id
     })
 
 ## Error Handling
@@ -172,8 +173,40 @@ def unprocessable(error):
     error handler should conform to general task above 
 '''
 
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({
+                    "success": False, 
+                    "error": 400,
+                    "message": "bad request"
+                    }), 400
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+                    "success": False, 
+                    "error": 404,
+                    "message": "resource not found"
+                    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({
+                    "success": False, 
+                    "error": 500,
+                    "message": "Internal server error"
+                    }), 500
 
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above 
 '''
+@app.errorhandler(AuthError)
+def auth_error(error):
+    # status = error.status_code
+    # print(error)
+    return jsonify({
+                    "success": False, 
+                    "error": error.status_code,
+                    "message": error.error.get('description','unknown error')
+                    }), error.status_code
