@@ -16,7 +16,7 @@ CORS(app)
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 '''
-db_drop_and_create_all()
+# db_drop_and_create_all()
 
 ## ROUTES
 '''
@@ -45,6 +45,7 @@ def retrieve_drinks():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks-detail', methods=['GET'])
+@requires_auth('get:drinks-detail')
 def retrieve_drinks_detail():
     drinks = [drink.long() for drink in Drink.query.all()]
     return jsonify({
@@ -63,7 +64,8 @@ def retrieve_drinks_detail():
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks', methods=['POST'])
-def create_new_drink():
+@requires_auth('post:drinks')
+def create_new_drink(jwt):
     newDrink = Drink(
         title = request.json.get('title', ''),
         recipe = json.dumps(request.json.get('recipe', ''))
@@ -100,7 +102,23 @@ def create_new_drink():
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks/<int:id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink(jwt, id):
+    drink = Drink.query.filter_by(Drink.id = id).one_or_none()
+    if drink is None:
+        # Drink with ID is not found
+        abort(404)
+    
+    try:
+        drink.delete()
+    except SQLAlchemyError:
+        abort(500)
+    
+    return jsonify({
+        "success" : True,
+        "delete" : id
+    })
 
 ## Error Handling
 '''
