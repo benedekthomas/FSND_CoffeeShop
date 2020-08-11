@@ -26,7 +26,11 @@ returns status code 200 and json {"success": True, "drinks": drinks} where
 
 @app.route("/drinks", methods=["GET"])
 def retrieve_drinks():
-    drinks = [drink.short() for drink in Drink.query.all()]
+    try:
+        drinks = [drink.short() for drink in Drink.query.all()]
+    except exc.SQLAlchemyError:
+        # return internal server error if couldn't add record
+        abort(500)
 
     return jsonify({
                     "success": True,
@@ -104,7 +108,11 @@ def patch_drink(jwt, drink_id):
     drink = Drink.query.filter_by(id=drink_id).one_or_none()
     if drink is None:
         # Drink with ID is not found
-        abort(404)
+        return jsonify({
+                        "success": False,
+                        "error": 404,
+                        "message": ("Drink #{} not found.".format(drink_id))
+                        }), 404
 
     if request.json.get("title", "") != "":
         drink.title = request.json.get("title", "")
@@ -137,7 +145,11 @@ def delete_drink(jwt, drink_id):
 
     if drink is None:
         # Drink with ID is not found
-        abort(404)
+        return jsonify({
+                        "success": False,
+                        "error": 404,
+                        "message": ("Drink #{} not found.".format(drink_id))
+        }), 404
 
     try:
         drink.delete()
